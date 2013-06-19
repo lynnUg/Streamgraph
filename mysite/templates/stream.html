@@ -21,45 +21,59 @@
   <div id="legend"></div>
 
   <script type="text/javascript">
+  
     //Data is parsed from view.py file in json format
+    //Data is the three mobile phones with the highest count.This is
+    //returned in a list.For each mobile phone returned there's a list of entries in a histogram format(time and count value of mobile phone usage at the time)
     var data;
+    //load data
     data = JSON.parse('{{ entry|safe }}');
+  
+    //for each entry parse the time and count
     data.forEach(function(s) {
     s.entries.forEach(function(d) {
     d.time = new Date(d.time);
     d.count = parseFloat(d.count);
               
     });
+    // find the max count for each set of entries and return a  maxCount variable
     s.maxCount = d3.max(s.entries, function(d) {
     return d.count;
     });
               
     });
+    // sort the list of entries according to maxCount
     data.sort(function(a, b) {
            
     return b.maxCount - a.maxCount;
     });
-          
+  
+    
     var area, areas, color, createLegend,  display, duration, height, hideLegend, line, paddingBottom, showLegend, stack, stackedAreas, start, streamgraph, svg, transitionTo, width, x, xAxis, y;
-
+    //intialize all the variables required to draw the stream graph
+    // , stacked graph and area graph
     paddingBottom = 20;
-
+    // width and height of the svg object
     width = 880;
 
     height = 600 - paddingBottom;
-
+    // duration transisition to new graph
     duration = 750;
-
+    // xaxis scale
     x = d3.time.scale().range([0, width]);
-
+    // yaxis scale
     y = d3.scale.linear().range([height, 0]);
-
+    // color scale used for visualization
     color = d3.scale.category10();
 
+
+   //area generator used to draw polygons used in the graphs
     area = d3.svg.area().interpolate("basis").x(function(d,i) {return x(d.time);});
-
-    line = d3.svg.line().interpolate("basis").x(function(d,i) {return x(d.time);});
-
+   // line generator used for all the graphs
+    line = d3.svg.line().interpolate("basis").x(function(d,i) {return
+    x(d.time);});
+  
+    //Stack layout to be used for streamgraph and stacked area graph
     stack = d3.layout.stack().values(function(d) {
         
     return d.entries;
@@ -74,10 +88,12 @@
               
     }).order("reverse");
 
+
+    //intialize xAxis and svg
     xAxis = d3.svg.axis().scale(x).tickSize(-height);
     svg = d3.select("#vis").append("svg").attr("width", width).attr("height", height + paddingBottom);
 
-        
+    // transition function
       transitionTo = function(name) 
          {
         if (name === "stream") 
@@ -94,33 +110,57 @@
               }
             };
 
-
+   //start function that starts out by drawing the legends, axis and
+   // then calls on the streamgraph function to drwa the streamgraph
     start = function() {
     var dates, g, index, maxDate, minDate, requests;
+
+    // set up x axis domain
     minDate = d3.min(data, function(d) {return d.entries[0].time; });
     maxDate = d3.max(data, function(d) {  return d.entries[d.entries.length - 1].time;});
     x.domain([minDate, maxDate]);
     dates = data[0].entries.map(function(v) {return v.time;});
     index = 0;
+
+    // add dates to x axis
     xAxis.tickValues(dates);
-    svg.append("g").attr("class", "x axis").attr("transform", "translate(0," + height + ")").call(xAxis);
+    console.log(dates);
+    svg.append("g").attr("class", "x axis").attr("transform",
+   "translate(0," + height + ")").call(xAxis);
+
+    // start display in the middle
     area.y0(height / 2).y1(height / 2);
+
+   //bind data to create a new group for each request
     g = svg.selectAll(".request").data(data).enter();
     requests = g.append("g").attr("class", "request");
+
+    //add paths that will be used to siplay the lines and areas that
+   // make up charts
     requests.append("path").attr("class", "area").style("fill", function(d) {return color(d.term);})
     .attr("d", function(d) {return area(d.entries);});
     requests.append("path").attr("class", "line").style("stroke-opacity", 10);
     createLegend();
+    // return streamgraogh
     return streamgraph();
     };
 
+   // stream graph function that draws the streamgraph
    streamgraph = function() {
    var t;
+   // stream graph 'offest'
    stack.offset("wiggle");
    stack(data);
-   y.domain([0, d3.max(data[0].entries.map(function(d) {return d.count0 + d.count;})) ]).range([height, 0]);
+   //creat y domain
+   y.domain([0, d3.max(data[0].entries.map(function(d) {return
+   d.count0 + d.count;})) ]).range([height, 0]);
+
+   // line and area functions to accomodate count0 variable created in
+   //stack layout
    line.y(function(d) {return y(d.count0);});
-   area.y0(function(d) {return y(d.count0);}).y1(function(d) { return y(d.count0 + d.count);});
+   area.y0(function(d) {return y(d.count0);}).y1(function(d) { return
+   y(d.count0 + d.count);});
+   //create transistion
    t = svg.selectAll(".request").transition().duration(duration);
    t.select("path.area").style("fill-opacity", 1.0).attr("d", function(d,i) { /*console.log(area(d.entries))*/
    return area(d.entries);});
@@ -128,6 +168,7 @@
    return line(d.entries);});
      };
 
+ //function that draws the stacked graph
    stackedAreas = function() {
    var t;
    stack.offset("zero");
@@ -151,6 +192,7 @@
     return line(d.entries);});
     };
 
+//fuction to return area chart
 areas = function() {
   var g, t;
   g = svg.selectAll(".request");
@@ -179,14 +221,22 @@ areas = function() {
     return line(d.entries);
   });
    };
+
+
+//function to display legends
  showLegend = function(d, i) {
+  d3.select("#legend svg g.panel").transition().duration(500).text("nothing");
   return d3.select("#legend svg g.panel").transition().duration(500).attr("transform", "translate(0,0)");
    };
 
+
+//function to hide legend
   hideLegend = function(d, i) {
   return d3.select("#legend svg g.panel").transition().duration(500).attr("transform", "translate(165,0)");
   };
 
+
+  //function to create legend (side panel)
   createLegend = function() {
   var keys, legend, legendG, legendHeight, legendWidth;
   legendWidth = 200;
@@ -194,7 +244,7 @@ areas = function() {
   legend = d3.select("#legend").append("svg").attr("width", legendWidth).attr("height", legendHeight);
   legendG = legend.append("g").attr("transform", "translate(165,0)").attr("class", "panel");
   legendG.append("rect").attr("width", legendWidth).attr("height", legendHeight).attr("rx", 4).attr("ry", 4).attr("fill-opacity", 0.5).attr("fill", "white");
-  legendG.on("mouseover", showLegend).on("mouseout", hideLegend);
+  legendG.on("mouseover", showLegend);//.on("mouseout", hideLegend);
   keys = legendG.selectAll("g").data(data).enter().append("g").attr("transform", function(d, i) {
     return "translate(" + 5 + "," + (10 + 40 * (i + 0)) + ")";
   });
@@ -207,11 +257,13 @@ areas = function() {
    };
 
   start();
+  //button that allows transistions between stream graph , stacked graph and area graph
   buttons=(function() {
   d3.selectAll(".switch").on("click", function(d) {
     var id;
     d3.event.preventDefault();
     id = d3.select(this).attr("id");
+    console.log(d3.select(this));
     return transitionTo(id);
   });
   
